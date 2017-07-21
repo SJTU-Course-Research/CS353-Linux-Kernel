@@ -1,0 +1,1 @@
+cmd_/home/jimmy/Documents/Pro2A_6/Pro2A_6.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/jimmy/Documents/Pro2A_6/Pro2A_6.ko /home/jimmy/Documents/Pro2A_6/Pro2A_6.o /home/jimmy/Documents/Pro2A_6/Pro2A_6.mod.o

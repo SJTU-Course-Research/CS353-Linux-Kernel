@@ -1,0 +1,61 @@
+diff -Nrup linux-4.10.8/fs/proc/base.c linux-4.10.8-modified/fs/proc/base.c
+--- linux-4.10.8/fs/proc/base.c	2017-03-31 16:33:52.000000000 +0800
++++ linux-4.10.8-modified/fs/proc/base.c	2017-04-01 20:06:42.422343116 +0800
+@@ -480,6 +480,11 @@ static int proc_pid_stack(struct seq_fil
+ }
+ #endif
+ 
++static int proc_pid_ctx(struct seq_file *m,struct pid_namespace *ns,
++		struct pid *pid,struct task_struct *task){
++	seq_printf(m,"The ctx is %d\n",myctx);          //输出到文件中
++}
++
+ #ifdef CONFIG_SCHED_INFO
+ /*
+  * Provides /proc/PID/schedstat
+@@ -2927,6 +2932,7 @@ static const struct pid_entry tgid_base_
+ #ifdef CONFIG_TASK_IO_ACCOUNTING
+ 	ONE("io",	S_IRUSR, proc_tgid_io_accounting),
+ #endif
++	ONE("ctx",S_IRUGO,proc_pid_ctx),       //在PID文档中加入名为ctx的文件
+ #ifdef CONFIG_HARDWALL
+ 	ONE("hardwall",   S_IRUGO, proc_pid_hardwall),
+ #endif
+
+diff -Nrup linux-4.10.8/include/linux/sched.h linux-4.10.8-modified/include/linux/sched.h
+--- linux-4.10.8/include/linux/sched.h	2017-03-31 16:33:52.000000000 +0800
++++ linux-4.10.8-modified/include/linux/sched.h	2017-04-01 20:05:34.898210616 +0800
+@@ -1521,7 +1521,7 @@ struct task_struct {
+ 	atomic_t usage;
+ 	unsigned int flags;	/* per process flags, defined below */
+ 	unsigned int ptrace;
+-
++	unsigned int myctx;					//在task struct 中加入ctx变量 
+ #ifdef CONFIG_SMP
+ 	struct llist_node wake_entry;
+ 	int on_cpu;
+
+diff -Nrup linux-4.10.8/kernel/fork.c linux-4.10.8-modified/kernel/fork.c
+--- linux-4.10.8/kernel/fork.c	2017-03-31 16:33:52.000000000 +0800
++++ linux-4.10.8-modified/kernel/fork.c	2017-04-01 20:04:21.406092627 +0800
+@@ -1941,6 +1941,7 @@ long _do_fork(unsigned long clone_flags,
+ 
+ 	p = copy_process(clone_flags, stack_start, stack_size,
+ 			 child_tidptr, NULL, trace, tls, NUMA_NO_NODE);
++	p->myctx=0;                        //新建一个进程时，初始化为1
+ 	add_latent_entropy();
+ 	/*
+ 	 * Do this prior waking up the new thread - the thread pointer
+ 	 
+diff -Nrup linux-4.10.8/kernel/sched/core.c linux-4.10.8-modified/kernel/sched/core.c
+--- linux-4.10.8/kernel/sched/core.c	2017-03-31 16:33:52.000000000 +0800
++++ linux-4.10.8-modified/kernel/sched/core.c	2017-04-01 20:07:40.626473599 +0800
+@@ -3398,7 +3398,7 @@ static void __sched notrace __schedule(b
+ 		rq->nr_switches++;
+ 		rq->curr = next;
+ 		++*switch_count;
+-
++		next->myctx++;						//被调用时加1
+ 		trace_sched_switch(preempt, prev, next);
+ 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
+ 	} else {

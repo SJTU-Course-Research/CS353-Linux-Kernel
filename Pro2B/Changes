@@ -1,0 +1,58 @@
+--- linux-4.10.1/kernel/sched/core.c	2017-02-26 02:09:33.000000000 -0800
++++ linux-4.10.1.Pro/kernel/sched/core.c	2017-04-06 01:56:33.390452035 -0700
+@@ -3398,7 +3398,8 @@ static void __sched notrace __schedule(b
+ 		rq->nr_switches++;
+ 		rq->curr = next;
+ 		++*switch_count;
+-
++		
++		next->myctx++;
+ 		trace_sched_switch(preempt, prev, next);
+ 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
+ 	} else {
+
+--- linux-4.10.1/kernel/fork.c	2017-02-26 02:09:33.000000000 -0800
++++ linux-4.10.1.Pro/kernel/fork.c	2017-04-06 01:57:35.678467907 -0700
+@@ -1941,6 +1941,7 @@ long _do_fork(unsigned long clone_flags,
+ 
+ 	p = copy_process(clone_flags, stack_start, stack_size,
+ 			 child_tidptr, NULL, trace, tls, NUMA_NO_NODE);
++	p->myctx=0;
+ 	add_latent_entropy();
+ 	/*
+ 	 * Do this prior waking up the new thread - the thread pointer
+
+--- linux-4.10.1/fs/proc/base.c	2017-02-26 02:09:33.000000000 -0800
++++ linux-4.10.1.Pro/fs/proc/base.c	2017-04-06 02:10:18.020526951 -0700
+@@ -479,7 +479,11 @@ static int proc_pid_stack(struct seq_fil
+ 	return err;
+ }
+ #endif
+-
++static int proc_pid_ctx(struct seq_file *m, struct pid_namespace *ns,
++			struct pid *pid, struct task_struct *task)
++{
++	seq_printf(m,"The present ctx is %d\n"
++}
+ #ifdef CONFIG_SCHED_INFO
+ /*
+  * Provides /proc/PID/schedstat
+@@ -2927,6 +2931,7 @@ static const struct pid_entry tgid_base_
+ #ifdef CONFIG_TASK_IO_ACCOUNTING
+ 	ONE("io",	S_IRUSR, proc_tgid_io_accounting),
+ #endif
++	ONE("ctx", S_IRUSR, proc_pid_ctx),
+ #ifdef CONFIG_HARDWALL
+ 	ONE("hardwall",   S_IRUGO, proc_pid_hardwall),
+ #endif
+
+--- linux-4.10.1/include/linux/sched.h	2017-02-26 02:09:33.000000000 -0800
++++ linux-4.10.1.Pro/include/linux/sched.h	2017-04-06 02:37:50.872251538 -0700
+@@ -1522,6 +1522,7 @@ struct task_struct {
+ 	unsigned int flags;	/* per process flags, defined below */
+ 	unsigned int ptrace;
+ 
++	unsigned int myctx;
+ #ifdef CONFIG_SMP
+ 	struct llist_node wake_entry;
+ 	int on_cpu;
